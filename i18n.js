@@ -45,8 +45,9 @@ module.exports = (function() {
     autoReload,
     cookiename,
     defaultLocale,
-    directory,
+    mainDirectory,
     directoryPermissions,
+    additionalDirectories,
     extension,
     fallbacks,
     indent,
@@ -105,8 +106,11 @@ module.exports = (function() {
     queryParameter = (typeof opt.queryParameter === 'string') ? opt.queryParameter : null;
 
     // where to store json files
-    directory = (typeof opt.directory === 'string') ?
+    mainDirectory = (typeof opt.directory === 'string') ?
       opt.directory : path.join(__dirname, 'locales');
+
+    // additional directories to read cumulative translation files from
+    additionalDirectories = Array.isArray(opt.additionalDirectories) ? opt.additionalDirectories : [];
 
     // permissions when creating new directories
     directoryPermissions = (typeof opt.directoryPermissions === 'string') ?
@@ -148,8 +152,8 @@ module.exports = (function() {
     preserveLegacyCase = (typeof opt.preserveLegacyCase === 'undefined') ?
       true : opt.preserveLegacyCase;
 
-    // when missing locales we try to guess that from directory
-    opt.locales = opt.locales || guessLocales(directory);
+    // when missing locales we try to guess them from the directories
+    opt.locales = opt.locales || guessLocales([mainDirectory, ...additionalDirectories]);
 
     // implicitly read all locales
     if (Array.isArray(opt.locales)) {
@@ -162,7 +166,8 @@ module.exports = (function() {
       if (autoReload) {
 
         // watch changes of locale files (it's called twice because fs.watch is still unstable)
-        fs.watch(directory, function(event, filename) {
+        // DUGAN: TODO: also watch the additional directories?
+        fs.watch(mainDirectory, function(event, filename) {
           var localeFromFile = guessLocaleFromFile(filename);
 
           if (localeFromFile && opt.locales.indexOf(localeFromFile) > -1) {
@@ -616,18 +621,21 @@ module.exports = (function() {
   };
 
   /**
-   * tries to guess locales by scanning the given directory
+   * tries to guess locales by scanning the given directories
    */
-  var guessLocales = function(directory) {
-    var entries = fs.readdirSync(directory);
+  var guessLocales = function(directories) {
     var localesFound = [];
 
-    for (var i = entries.length - 1; i >= 0; i--) {
-      if (entries[i].match(/^\./)) continue;
-      var localeFromFile = guessLocaleFromFile(entries[i]);
-      if (localeFromFile) localesFound.push(localeFromFile);
-    }
+    directories.forEach(function(dir) {
+      var entries = fs.readdirSync(dir);
+      for (var i = entries.length - 1; i >= 0; i--) {
+        if (entries[i].match(/^\./)) continue;
+        var localeFromFile = guessLocaleFromFile(entries[i]);
+        if (localeFromFile) localesFound.push(localeFromFile);
+      }
+    });
 
+    logDebug('found locales:' + localesFound);
     return localesFound.sort();
   };
 
@@ -1078,7 +1086,7 @@ module.exports = (function() {
    */
   var read = function(locale) {
     var localeFile = {},
-      file = getStorageFilePath(locale);
+      file = getStorageFilePath(locale, mainDirectory);
     try {
       logDebug('read ' + file + ' for locale: ' + locale);
       localeFile = fs.readFileSync(file);
@@ -1087,7 +1095,7 @@ module.exports = (function() {
         locales[locale] = JSON.parse(localeFile);
       } catch (parseError) {
         logError('unable to parse locales from file (maybe ' +
-          file + ' is empty or invalid json?): ', parseError);
+          file + ' is empty or invalid json?): ' + parseError);
       }
     } catch (readError) {
       // unable to read, so intialize that file
@@ -1103,6 +1111,29 @@ module.exports = (function() {
       logDebug('initializing ' + file);
       write(locale);
     }
+
+    // Read data from additional directories, without writing anything back out
+    additionalDirectories.forEach(function(dir) {
+      file = getStorageFilePath(locale, dir);
+      try {
+        logDebug('read ' + file + ' for locale: ' + locale);
+        localeFile = fs.readFileSync(file);
+        try {
+          // parsing filecontents and merging into locales[locale]
+          var parsedFile = JSON.parse(localeFile);
+          if (locales.hasOwnProperty(locale)) {
+            Object.assign(locales[locale], parsedFile);
+          } else {
+            locales[locale] = parsedFile;
+          }
+        } catch (parseError) {
+          logError('unable to parse locales from file (maybe ' +
+            file + ' is empty or invalid json?): ' + parseError);
+        }
+      } catch (readError) {
+          logDebug('failed to find/open file at ' + file);
+      }
+    });
   };
 
   /**
@@ -1118,10 +1149,10 @@ module.exports = (function() {
 
     // creating directory if necessary
     try {
-      stats = fs.lstatSync(directory);
+      stats = fs.lstatSync(mainDirectory);
     } catch (e) {
-      logDebug('creating locales dir in: ' + directory);
-      fs.mkdirSync(directory, directoryPermissions);
+      logDebug('creating locales dir in: ' + mainDirectory);
+      fs.mkdirSync(mainDirectory, directoryPermissions);
     }
 
     // first time init has an empty file
@@ -1131,7 +1162,7 @@ module.exports = (function() {
 
     // writing to tmp and rename on success
     try {
-      target = getStorageFilePath(locale);
+      target = getStorageFilePath(locale, mainDirectory);
       tmp = target + '.tmp';
       fs.writeFileSync(tmp, JSON.stringify(locales[locale], null, indent), 'utf8');
       stats = fs.statSync(tmp);
@@ -1150,7 +1181,7 @@ module.exports = (function() {
   /**
    * basic normalization of filepath
    */
-  var getStorageFilePath = function(locale) {
+  var getStorageFilePath = function(locale, directory) {
     // changed API to use .json as default, #16
     var ext = extension || '.json',
       filepath = path.normalize(directory + pathsep + prefix + locale + ext),
