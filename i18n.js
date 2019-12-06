@@ -213,14 +213,12 @@ module.exports = (function() {
    */
   i18n.resolveLanguageHeader = function i18nResolveLanguageHeader(languageHeader) {
     var acceptedLanguages = getAcceptedLanguagesFromHeader(languageHeader);
-    var languages = [], regions = [];
+    var languages = [];
     var match, fallbackMatch, fallback;
 
     for (var i = 0; i < acceptedLanguages.length; i++) {
-      var lang = acceptedLanguages[i],
-        lr = lang.split('-', 2),
-        parentLang = lr[0],
-        region = lr[1];
+      var lang = acceptedLanguages[i];
+      var parentLang = lang.split('-', 1)[0];
 
       // Check if we have a configured fallback set for this language.
       if (fallbacks && fallbacks[lang]) {
@@ -249,9 +247,6 @@ module.exports = (function() {
       if (languages.indexOf(parentLang) < 0) {
         languages.push(parentLang.toLowerCase());
       }
-      if (region) {
-        regions.push(region.toLowerCase());
-      }
 
       if (!match && locales[lang]) {
         match = lang;
@@ -263,10 +258,7 @@ module.exports = (function() {
       }
     }
 
-    return {
-      language: match || fallbackMatch,
-      region: regions[0]
-    };
+    return match || fallbackMatch;
   };
 
   /**
@@ -760,9 +752,7 @@ module.exports = (function() {
       var languageHeader = request.headers ? request.headers['accept-language'] : undefined;
 
       request.languages = [defaultLocale];
-      request.regions = [defaultLocale];
       request.language = defaultLocale;
-      request.region = defaultLocale;
 
       // a query parameter overwrites all
       if (queryParameter && request.url) {
@@ -787,9 +777,8 @@ module.exports = (function() {
 
       // 'accept-language' is the most common source
       if (languageHeader) {
-        var {language, region} = i18n.resolveLanguageHeader(languageHeader);
+        var language = i18n.resolveLanguageHeader(languageHeader);
         request.language = language || request.language;
-        request.region = region || request.region;
         return i18n.setLocale(request, request.language);
       }
     }
