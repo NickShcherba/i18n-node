@@ -208,6 +208,102 @@ module.exports = (function() {
     }
   };
 
+  /**
+   * Pick the best of the available languages given an HTTP Accept-Language header
+   */
+  i18n.resolveLanguageHeader = function i18nResolveLanguageHeader(languageHeader) {
+    var acceptedLanguages = getAcceptedLanguagesFromHeader(languageHeader);
+    var languages = [], regions = [];
+    var match, fallbackMatch, fallback;
+
+    for (var i = 0; i < acceptedLanguages.length; i++) {
+      var lang = acceptedLanguages[i],
+        lr = lang.split('-', 2),
+        parentLang = lr[0],
+        region = lr[1];
+
+      // Check if we have a configured fallback set for this language.
+      if (fallbacks && fallbacks[lang]) {
+        fallback = fallbacks[lang];
+        // Fallbacks for languages should be inserted
+        // where the original, unsupported language existed.
+        var acceptedLanguageIndex = acceptedLanguages.indexOf(lang);
+        var fallbackIndex = acceptedLanguages.indexOf(fallback);
+        if(fallbackIndex > -1) {
+          acceptedLanguages.splice(fallbackIndex, 1);
+        }
+        acceptedLanguages.splice(acceptedLanguageIndex + 1, 0, fallback);
+      }
+
+      // Check if we have a configured fallback set for the parent language of the locale.
+      if (fallbacks && fallbacks[parentLang]) {
+        fallback = fallbacks[parentLang];
+        // Fallbacks for a parent language should be inserted
+        // to the end of the list, so they're only picked
+        // if there is no better match.
+        if (acceptedLanguages.indexOf(fallback) < 0) {
+          acceptedLanguages.push(fallback);
+        }
+      }
+
+      if (languages.indexOf(parentLang) < 0) {
+        languages.push(parentLang.toLowerCase());
+      }
+      if (region) {
+        regions.push(region.toLowerCase());
+      }
+
+      if (!match && locales[lang]) {
+        match = lang;
+        break;
+      }
+
+      if (!fallbackMatch && locales[parentLang]) {
+        fallbackMatch = parentLang;
+      }
+    }
+
+    return {
+      language: match || fallbackMatch,
+      region: regions[0]
+    };
+  };
+
+  /**
+   * Add a directory of translation files to be used
+   */
+  i18n.addDirectory = function i18AddDirectory(dirName) {
+    var fileNames = fs.readdirSync(dirName);
+    for (let fileName of fileNames) {
+      if (fileName.match(/^\./)) continue;
+      var locale = guessLocaleFromFile(fileName);
+      try {
+        logDebug('read ' + fileName + ' for locale: ' + locale);
+        var localeFile = fs.readFileSync(fileName);
+        try {
+          var parsedFile = JSON.parse(localeFile);
+          i18n.incorporateTranslations(locale, parsedFile);
+        } catch (parseError) {
+          logError('unable to parse locales from file (maybe ' +
+            fileName + ' is empty or invalid json?): ' + parseError);
+        }
+      } catch (readError) {
+          logDebug('failed to read file at ' + fileName + ': ' + readError);
+      }
+    }
+  };
+
+  /**
+   * Add a translation string map for a given locale
+   */ 
+  i18n.incorporateTranslations = function i18nIncorporateTranslations(locale, stringMap) {
+    if (locales.hasOwnProperty(locale)) {
+      Object.assign(locales[locale], stringMap);
+    } else {
+      locales[locale] = stringMap;
+    }
+  };
+
   i18n.__ = function i18nTranslate(phrase) {
     var msg;
     var argv = parseArgv(arguments);
@@ -287,6 +383,9 @@ module.exports = (function() {
 
     return postProcess(f(namedValues), namedValues, args);
   };
+
+  /* More readable synonym */
+  i18n.translate = i18n.__;
 
   i18n.__l = function i18nTranslationList(phrase) {
     var translations = [];
@@ -658,9 +757,7 @@ module.exports = (function() {
 
   var guessLanguage = function(request) {
     if (typeof request === 'object') {
-      var languageHeader = request.headers? request.headers['accept-language'] : undefined,
-        languages = [],
-        regions = [];
+      var languageHeader = request.headers ? request.headers['accept-language'] : undefined;
 
       request.languages = [defaultLocale];
       request.regions = [defaultLocale];
@@ -690,57 +787,9 @@ module.exports = (function() {
 
       // 'accept-language' is the most common source
       if (languageHeader) {
-        var acceptedLanguages = getAcceptedLanguagesFromHeader(languageHeader),
-          match, fallbackMatch, fallback;
-        for (var i = 0; i < acceptedLanguages.length; i++) {
-          var lang = acceptedLanguages[i],
-            lr = lang.split('-', 2),
-            parentLang = lr[0],
-            region = lr[1];
-
-          // Check if we have a configured fallback set for this language.
-          if (fallbacks && fallbacks[lang]) {
-            fallback = fallbacks[lang];
-            // Fallbacks for languages should be inserted
-            // where the original, unsupported language existed.
-            var acceptedLanguageIndex = acceptedLanguages.indexOf(lang);
-            var fallbackIndex = acceptedLanguages.indexOf(fallback);
-            if(fallbackIndex > -1) {
-              acceptedLanguages.splice(fallbackIndex, 1);
-            }
-            acceptedLanguages.splice(acceptedLanguageIndex + 1, 0, fallback);
-          }
-
-          // Check if we have a configured fallback set for the parent language of the locale.
-          if (fallbacks && fallbacks[parentLang]) {
-            fallback = fallbacks[parentLang];
-            // Fallbacks for a parent language should be inserted
-            // to the end of the list, so they're only picked
-            // if there is no better match.
-            if (acceptedLanguages.indexOf(fallback) < 0) {
-              acceptedLanguages.push(fallback);
-            }
-          }
-
-          if (languages.indexOf(parentLang) < 0) {
-            languages.push(parentLang.toLowerCase());
-          }
-          if (region) {
-            regions.push(region.toLowerCase());
-          }
-
-          if (!match && locales[lang]) {
-            match = lang;
-            break;
-          }
-
-          if (!fallbackMatch && locales[parentLang]) {
-            fallbackMatch = parentLang;
-          }
-        }
-
-        request.language = match || fallbackMatch || request.language;
-        request.region = regions[0] || request.region;
+        var {language, region} = i18n.resolveLanguageHeader(languageHeader);
+        request.language = language || request.language;
+        request.region = region || request.region;
         return i18n.setLocale(request, request.language);
       }
     }
@@ -814,7 +863,7 @@ module.exports = (function() {
   };
 
   /**
-   * test a number to match mathematical interval expressions
+   * test a number to match mathematical interval  expressions
    * [0,2] - 0 to 2 (including, matches: 0, 1, 2)
    * ]0,3[ - 0 to 3 (excluding, matches: 1, 2)
    * [1]   - 1 (matches: 1)
