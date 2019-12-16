@@ -110,6 +110,10 @@ module.exports = (function() {
       opt.directory : path.join(__dirname, 'locales');
 
     // additional directories to read cumulative translation files from
+    // TODO: Before merging this upstream it would need to be tightened up considerably:
+    // - Makes 'updateFiles' and 'additionalDirectories' mutually exclusive, or clarify
+    //   what the behavior will be when combining them (which files will be updated etc.)
+    // - Add comprehensive tests
     additionalDirectories = Array.isArray(opt.additionalDirectories) ? opt.additionalDirectories : [];
 
     // permissions when creating new directories
@@ -166,7 +170,7 @@ module.exports = (function() {
       if (autoReload) {
 
         // watch changes of locale files (it's called twice because fs.watch is still unstable)
-        // DUGAN: TODO: also watch the additional directories?
+        // TODO: also watch the additional directories?
         fs.watch(mainDirectory, function(event, filename) {
           var localeFromFile = guessLocaleFromFile(filename);
 
@@ -269,41 +273,6 @@ module.exports = (function() {
     };
   };
 
-  /**
-   * Add a directory of translation files to be used
-   */
-  i18n.addDirectory = function i18AddDirectory(dirName) {
-    var fileNames = fs.readdirSync(dirName);
-    for (let fileName of fileNames) {
-      if (fileName.match(/^\./)) continue;
-      var locale = guessLocaleFromFile(fileName);
-      try {
-        logDebug('read ' + fileName + ' for locale: ' + locale);
-        var localeFile = fs.readFileSync(fileName);
-        try {
-          var parsedFile = JSON.parse(localeFile);
-          i18n.incorporateTranslations(locale, parsedFile);
-        } catch (parseError) {
-          logError('unable to parse locales from file (maybe ' +
-            fileName + ' is empty or invalid json?): ' + parseError);
-        }
-      } catch (readError) {
-          logDebug('failed to read file at ' + fileName + ': ' + readError);
-      }
-    }
-  };
-
-  /**
-   * Add a translation string map for a given locale
-   */ 
-  i18n.incorporateTranslations = function i18nIncorporateTranslations(locale, stringMap) {
-    if (locales.hasOwnProperty(locale)) {
-      Object.assign(locales[locale], stringMap);
-    } else {
-      locales[locale] = stringMap;
-    }
-  };
-
   i18n.__ = function i18nTranslate(phrase) {
     var msg;
     var argv = parseArgv(arguments);
@@ -384,7 +353,7 @@ module.exports = (function() {
     return postProcess(f(namedValues), namedValues, args);
   };
 
-  /* More readable synonym */
+  // A more readable synonym for '__'
   i18n.translate = i18n.__;
 
   i18n.__l = function i18nTranslationList(phrase) {
@@ -863,7 +832,7 @@ module.exports = (function() {
   };
 
   /**
-   * test a number to match mathematical interval  expressions
+   * test a number to match mathematical interval expressions
    * [0,2] - 0 to 2 (including, matches: 0, 1, 2)
    * ]0,3[ - 0 to 3 (excluding, matches: 1, 2)
    * [1]   - 1 (matches: 1)
@@ -1144,7 +1113,7 @@ module.exports = (function() {
         locales[locale] = JSON.parse(localeFile);
       } catch (parseError) {
         logError('unable to parse locales from file (maybe ' +
-          file + ' is empty or invalid json?): ' + parseError);
+          file + ' is empty or invalid json?): ', parseError);
       }
     } catch (readError) {
       // unable to read, so intialize that file
@@ -1177,7 +1146,7 @@ module.exports = (function() {
           }
         } catch (parseError) {
           logError('unable to parse locales from file (maybe ' +
-            file + ' is empty or invalid json?): ' + parseError);
+            file + ' is empty or invalid json?): ', parseError);
         }
       } catch (readError) {
           logDebug('failed to find/open file at ' + file);
