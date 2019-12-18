@@ -220,6 +220,9 @@ module.exports = (function() {
     var languages = [], regions = [];
     var match, fallbackMatch, fallback;
 
+    logDebug('resolveLanguageHeader: Accept-Language="' + languageHeader + '" so language order: ' + JSON.stringify(acceptedLanguages));
+    logDebug('resolveLanguageHeader: locale translations available: ' + JSON.stringify(Object.keys(locales)));
+
     for (var i = 0; i < acceptedLanguages.length; i++) {
       var lang = acceptedLanguages[i],
         lr = lang.split('-', 2),
@@ -267,10 +270,17 @@ module.exports = (function() {
       }
     }
 
-    return {
-      language: match || fallbackMatch,
-      region: regions[0]
+    let ret = {
+      language: match || fallbackMatch || defaultLocale,
+      region: regions[0] || defaultLocale
     };
+
+    logDebug('resolveLanguageHeader: languages=' + JSON.stringify(languages));
+    logDebug('resolveLanguageHeader: regions=' + JSON.stringify(regions));
+    logDebug('resolveLanguageHeader: match=' + JSON.stringify(match) + ', fallbackMatch=' + JSON.stringify(fallbackMatch));
+    logDebug('resolveLanguageHeader: Returning ' + JSON.stringify(ret));
+
+    return ret;
   };
 
   i18n.__ = function i18nTranslate(phrase) {
@@ -703,7 +713,7 @@ module.exports = (function() {
       }
     });
 
-    logDebug('found locales:' + localesFound);
+    logDebug('found translation files for: ' + localesFound);
     return localesFound.sort();
   };
 
@@ -728,8 +738,8 @@ module.exports = (function() {
     if (typeof request === 'object') {
       var languageHeader = request.headers ? request.headers['accept-language'] : undefined;
 
-      request.languages = [defaultLocale];
-      request.regions = [defaultLocale];
+      request.languages = [defaultLocale]; // Pretty sure this is wrong and does nothing at all
+      request.regions = [defaultLocale]; // Pretty sure this is wrong and does nothing at all
       request.language = defaultLocale;
       request.region = defaultLocale;
 
