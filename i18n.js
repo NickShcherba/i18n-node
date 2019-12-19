@@ -220,8 +220,10 @@ module.exports = (function() {
     var languages = [], regions = [];
     var match, fallbackMatch, fallback;
 
-    logDebug('resolveLanguageHeader: Accept-Language="' + languageHeader + '" so language order: ' + JSON.stringify(acceptedLanguages));
-    logDebug('resolveLanguageHeader: locale translations available: ' + JSON.stringify(Object.keys(locales)));
+    logDebug('resolveLanguageHeader: Accept-Language="' + languageHeader +
+             '" so language order: ' + JSON.stringify(acceptedLanguages));
+    logDebug('resolveLanguageHeader: locale translations available: ' +
+             JSON.stringify(Object.keys(locales)));
 
     for (var i = 0; i < acceptedLanguages.length; i++) {
       var lang = acceptedLanguages[i],
@@ -277,7 +279,8 @@ module.exports = (function() {
 
     logDebug('resolveLanguageHeader: languages=' + JSON.stringify(languages));
     logDebug('resolveLanguageHeader: regions=' + JSON.stringify(regions));
-    logDebug('resolveLanguageHeader: match=' + JSON.stringify(match) + ', fallbackMatch=' + JSON.stringify(fallbackMatch));
+    logDebug('resolveLanguageHeader: match=' + JSON.stringify(match) +
+             ', fallbackMatch=' + JSON.stringify(fallbackMatch));
     logDebug('resolveLanguageHeader: Returning ' + JSON.stringify(ret));
 
     return ret;
