@@ -1,7 +1,7 @@
 var express = require('express');
 var cookieParser = require('cookie-parser');
 var url = require('url');
-var i18n = require('../../i18n');
+var i18n = require('../../i18n')();
 
 i18n.configure({
   locales: ['en', 'de', 'ar'],

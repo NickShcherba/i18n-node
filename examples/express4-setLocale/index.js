@@ -1,6 +1,6 @@
 var express = require('express');
 var url = require('url');
-var i18n = require('../../i18n');
+var i18n = require('../../i18n')();
 
 // another 'global' object that is bound to i18n additionaly
 // DANGER! this `funkyObject` is NOT concurrency aware,

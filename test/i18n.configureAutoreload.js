@@ -1,15 +1,12 @@
-var i18n = require('../i18n'),
+var i18n = require('../i18n')(),
   should = require("should"),
   fs = require('fs'),
   path = require('path');
 
-var i18nPath = 'i18n';
-var i18nFilename = path.resolve(i18nPath + '.js');
 var timeout = 50;
 
 function reconfigure(config) {
-  delete require.cache[i18nFilename];
-  i18n = require(i18nFilename);
+  i18n = require('../i18n')();
   i18n.configure(config);
 }
 

@@ -8,7 +8,7 @@
 
 // require modules
 var http = require('http'),
-    i18n = require('../../i18n'),
+    i18n = require('../../i18n')(),
     url = require('url'),
     app;
 
