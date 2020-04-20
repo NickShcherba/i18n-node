@@ -28,6 +28,7 @@ module.exports = function() {
   var MessageformatInstanceForLocale = {},
     PluralsForLocale = {},
     locales = {},
+    overrides = {},
     api = {
       '__': '__',
       '__n': '__n',
@@ -39,7 +40,8 @@ module.exports = function() {
       'getCatalog': 'getCatalog',
       'getLocales': 'getLocales',
       'addLocale': 'addLocale',
-      'removeLocale': 'removeLocale'
+      'removeLocale': 'removeLocale',
+      'setOverrides': 'setOverrides'
     },
     pathsep = path.sep, // ---> means win support will be available in node 0.8.x and above
     autoReload,
@@ -69,8 +71,9 @@ module.exports = function() {
 
   i18n.configure = function i18nConfigure(opt) {
 
-    // reset locales
+    // reset locales and overrides
     locales = {};
+    overrides = {};
 
     // Provide custom API method aliases if desired
     // This needs to be processed before the first call to applyAPItoObject()
@@ -610,6 +613,10 @@ module.exports = function() {
     delete locales[locale];
   };
 
+  i18n.setOverrides = function i18nSetOverrides(nextOverrides) {
+    overrides = nextOverrides;
+  };
+
   // ===================
   // = private methods =
   // ===================
@@ -1017,6 +1024,9 @@ module.exports = function() {
     } else {
       // No object notation, just return an accessor that performs array lookup.
       return function() {
+        if (overrides && overrides[locale] && overrides[locale][singular]) {
+          return overrides[locale][singular];
+        }
         return locales[locale][singular];
       };
     }
