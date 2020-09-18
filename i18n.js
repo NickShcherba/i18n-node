@@ -23,7 +23,7 @@ var vsprintf = require('sprintf-js').vsprintf,
 
 
 // exports an i18n 'instance' factory
-module.exports = function() {
+module.exports = function(customFormatters) {
 
   var MessageformatInstanceForLocale = {},
     PluralsForLocale = {},
@@ -350,7 +350,8 @@ module.exports = function() {
     if (MessageformatInstanceForLocale[targetLocale]) {
       mf = MessageformatInstanceForLocale[targetLocale];
     } else {
-      mf = new Messageformat(targetLocale);
+      // Custom Formatters https://messageformat.github.io/messageformat/v3/page-guide#toc6__anchor
+      mf = customFormatters ? new Messageformat(targetLocale, { customFormatters }) : new Messageformat(targetLocale);
 
       // @see https://messageformat.github.io/messageformat/MessageFormat#disablePluralKeyChecks__anchor
       mf.disablePluralKeyChecks();
