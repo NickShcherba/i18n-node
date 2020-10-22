@@ -265,25 +265,20 @@ module.exports = function(customFormatters) {
         regions.push(region.toLowerCase());
       }
 
-      if (!match && locales[lang]) {
-        match = lang;
+      if (!match && locales[parentLang]) {
+        match = parentLang;
         break;
-      }
-
-      if (!fallbackMatch && locales[parentLang]) {
-        fallbackMatch = parentLang;
       }
     }
 
     let ret = {
-      language: match || fallbackMatch || defaultLocale,
+      language: match || defaultLocale,
       region: regions[0] || defaultLocale
     };
 
     logDebug('resolveLanguageHeader: languages=' + JSON.stringify(languages));
     logDebug('resolveLanguageHeader: regions=' + JSON.stringify(regions));
-    logDebug('resolveLanguageHeader: match=' + JSON.stringify(match) +
-             ', fallbackMatch=' + JSON.stringify(fallbackMatch));
+    logDebug('resolveLanguageHeader: match=' + JSON.stringify(match));
     logDebug('resolveLanguageHeader: Returning ' + JSON.stringify(ret));
 
     return ret;
