@@ -1,3 +1,6 @@
+# v0.9.2
+- Ignore region when resolving accept-language header
+
 # v0.9.1
 - Added ability add custom formatters to use that in ICU syntax
 
